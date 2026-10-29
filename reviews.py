@@ -1,24 +1,38 @@
+import os
 import pandas as pd
-from google_play_scraper import Sort, reviews, reviews_all, app
+from google_play_scraper import Sort, reviews, reviews_all
 
-def get_reviews(app_url: str) -> pd.DataFrame:
+def allow_load_reviews(filename: str):
+    if os.path.exists(filename):
+        return True
+
+def get_reviews(app_url: str, thumbsUpConstraint: int = 0) -> pd.DataFrame:
+    print("Getting reviews dataframe...")
+    filename = f"{app_url}-reviews.csv"
+    if allow_load_reviews(filename):
+        df = pd.read_csv(filename)
+        return df[df["thumbsUpCount"] >= thumbsUpConstraint]
+    
     result = reviews_all(app_url)
 
     df = pd.DataFrame(result)
+
+    # filtering by number of thumbs ups
+    df = df[df["thumbsUpCount"] >= thumbsUpConstraint]
+
     return df
 
-def save_reviews(app_url: str, reviews_dataframe: pd.DataFrame, file_type: str = "csv") -> bool:
+def save_reviews(app_url: str, reviews_dataframe: pd.DataFrame) -> bool:
+    print("Attempting to save...")
     try:
-        app_info = app(app_url)
-        match (file_type):
-            case "csv":
-                reviews_dataframe.to_csv(f"{app_info["title"]}-reviews.csv")
-            case "json":
-                reviews_dataframe.to_json(f"{app_info["title"]}-reviews.json")
-            case default:
-                print("hi")
-                raise ValueError("Invalid file type")
-        print(f"Reviews saved to \'{app_info["title"]-reviews.csv}\'")
+        filename = f"{app_url}-reviews.csv"
+        if reviews_dataframe[reviews_dataframe["thumbsUpCount"] == 0].shape[0] != 0:
+            reviews_dataframe.to_csv(filename)
+        else:
+            baseReviews = pd.DataFrame(reviews_all(app_url))
+            baseReviews.to_csv(filename)
+
+        print(f"Reviews saved to {filename}")
         return True
     except:
         print("Invalid app url or/and review object")
